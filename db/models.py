@@ -4,7 +4,7 @@ Stores user queries, recommendations, collaborations, projects, feedback, and lo
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean, JSON
 from sqlalchemy.orm import relationship
 from db.database import Base
 
@@ -78,3 +78,14 @@ class Feedback(Base):
 
     # Link to query
     query_log = relationship("QueryLog", back_populates="feedback")
+
+
+class FacultyWorkload(Base):
+    __tablename__ = "faculty_workload"
+
+    id = Column(Integer, primary_key=True, index=True)
+    faculty_name = Column(String(200), nullable=False, unique=True)
+    active_projects = Column(Integer, default=0)
+    project_titles = Column(JSON, nullable=True)  # List of project title strings
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+

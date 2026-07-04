@@ -106,3 +106,53 @@ class GroqService:
             
             logger.error(f"Groq API error: {e}")
             raise
+
+    def generate_json(
+        self,
+        user_prompt: str,
+        system_prompt: str = "You are a helpful assistant.",
+        temperature: float = 0.2,
+        max_tokens: int = 1500,
+    ) -> str:
+        """Generate a response in JSON format."""
+        logger.debug(f"Groq JSON request: model={self._model}, temp={temperature}")
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content
+            return content
+        except Exception as e:
+            error_str = str(e).lower()
+            if "rate_limit" in error_str or "429" in error_str or "rate limit" in error_str:
+                fallback_model = "llama-3.1-8b-instant"
+                logger.warning(f"Groq rate limit hit for {self._model}. Retrying JSON with fallback: {fallback_model}")
+                try:
+                    response = self._client.chat.completions.create(
+                        model=fallback_model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        response_format={"type": "json_object"},
+                    )
+                    return response.choices[0].message.content
+                except Exception as fallback_err:
+                    logger.error(f"Groq fallback model {fallback_model} also failed: {fallback_err}")
+                    raise RuntimeError(
+                        "Groq API daily token quota exceeded (100,000 TPD limit). "
+                        "Please wait for your limit to reset, or configure a new GROQ_API_KEY in .env."
+                    ) from fallback_err
+            
+            logger.error(f"Groq API error: {e}")
+            raise
+

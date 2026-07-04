@@ -12,7 +12,8 @@ from api.schemas import (
     ChatRequest, ChatResponse, 
     CollaborateRequest, CollaborateResponse,
     ProfessorModeRequest, ProfessorModeResponse,
-    FeedbackRequest, FeedbackResponse, LogItem
+    FeedbackRequest, FeedbackResponse, LogItem,
+    ProfessorConfirmRequest
 )
 from agents.chat_agent import ChatAgent
 from memory.memory_store import MemoryStore
@@ -147,6 +148,50 @@ async def professor_mode_endpoint(request: ProfessorModeRequest):
             topic=request.topic,
             analysis=prof_res["analysis"]
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/professor/analyze")
+async def professor_analyze_endpoint(request: ProfessorModeRequest):
+    """Production-grade Professor Mode analysis (Trends, Gaps, Workloads, Projects)."""
+    try:
+        from professor_mode.professor_agent import ProfessorAgent
+        prof_agent = ProfessorAgent()
+        report = prof_agent.run_analysis_report(request.topic)
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/professor/confirm")
+async def professor_confirm_endpoint(request: ProfessorConfirmRequest):
+    """Action Layer: Logs the selected project and generates academic email draft."""
+    try:
+        from professor_mode.professor_agent import ProfessorAgent
+        prof_agent = ProfessorAgent()
+        
+        # 1. Log to DB
+        q_log_id = prof_agent.log_recommendation_to_db(
+            topic=request.topic,
+            report=request.report,
+            project_idx=request.project_idx
+        )
+        if q_log_id == -1:
+            raise HTTPException(status_code=500, detail="Failed to log recommendation.")
+
+        # 2. Get selected project
+        projects = request.report.get("project_suggestions", [])
+        if not (0 <= request.project_idx < len(projects)):
+            raise HTTPException(status_code=400, detail="Invalid project selection index.")
+        selected_proj = projects[request.project_idx]
+
+        # 3. Generate email
+        email_draft = prof_agent.generate_collaboration_email(selected_proj)
+
+        return {
+            "status": "success",
+            "query_log_id": q_log_id,
+            "email_draft": email_draft
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

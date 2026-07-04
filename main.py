@@ -42,6 +42,105 @@ def main():
             print("Goodbye!")
             break
             
+        if query.lower().startswith("professor mode:") or query.lower().startswith("professor:"):
+            # Extract topic
+            prefix = "professor mode:" if query.lower().startswith("professor mode:") else "professor:"
+            topic = query[len(prefix):].strip()
+            if not topic:
+                print("Please specify a topic, e.g., 'Professor mode: Cloud Computing'")
+                continue
+                
+            print(f"\nRunning Professor Mode analysis & workload optimization for: '{topic}'...")
+            
+            try:
+                from professor_mode.professor_agent import ProfessorAgent
+                prof_agent = ProfessorAgent()
+                report = prof_agent.run_analysis_report(topic)
+                
+                # Print Trend Analysis
+                print("\n" + "=" * 65)
+                print("  GLOBAL RESEARCH TRENDS")
+                print("=" * 65)
+                for i, trend in enumerate(report["trend_analysis"]["trends"], 1):
+                    print(f"{i}. {trend['title']} ({trend['source'].upper()}, Confidence: {trend['confidence']:.2f})")
+                    print(f"   Summary: {trend['summary']}\n")
+                print("Emerging Areas: " + ", ".join(report["trend_analysis"]["emerging_areas"]))
+                
+                # Print Gap Analysis
+                print("\n" + "=" * 65)
+                print("  INSTITUTIONAL GAP ANALYSIS")
+                print("=" * 65)
+                print("Covered Areas: " + ", ".join(report["gap_analysis"]["covered_areas"]))
+                print("Missing Areas: " + ", ".join(report["gap_analysis"]["missing_areas"]))
+                print("\nOpportunity Gaps:")
+                for i, gap in enumerate(report["gap_analysis"]["opportunity_gaps"], 1):
+                    print(f" {i}. Gap: {gap['gap']}")
+                    print(f"    Why it matters: {gap['why_it_matters']}")
+                
+                # Print Project Suggestions
+                print("\n" + "=" * 65)
+                print("  SUGGESTED COLLABORATIVE RESEARCH PROJECTS")
+                print("=" * 65)
+                for i, proj in enumerate(report["project_suggestions"], 1):
+                    print(f"Project {i}: {proj['title']}")
+                    print(f"Description: {proj['description']}")
+                    print(f"Assigned Faculty: {', '.join(proj['faculty'])}")
+                    print(f"Trend Alignment: {proj['trend_alignment']}")
+                    print(f"Gap Alignment: {proj['gap_alignment']}")
+                    print(f"Impact: {proj['impact']}")
+                    
+                    if proj["workload_warnings"]:
+                        for warn in proj["workload_warnings"]:
+                            print(f"   ⚠️ WARNING: {warn['warning']}")
+                            if warn["suggested_alternatives"]:
+                                print(f"   Suggested Alternatives: {', '.join(warn['suggested_alternatives'])}")
+                    print("-" * 65)
+                
+                # CRITICAL confirmation step before action layer
+                proceed = input("\nDo you want to proceed with recommendation or email generation? (yes/no): ").strip().lower()
+                if proceed in ("yes", "y"):
+                    try:
+                        proj_choice = input(f"Enter project number to select (1-{len(report['project_suggestions'])}): ").strip()
+                        choice_idx = int(proj_choice) - 1
+                        if 0 <= choice_idx < len(report["project_suggestions"]):
+                            selected_proj = report["project_suggestions"][choice_idx]
+                            
+                            # 1. Log recommendation
+                            q_log_id = prof_agent.log_recommendation_to_db(topic, report, choice_idx)
+                            if q_log_id != -1:
+                                print("\nRecommendation successfully logged.")
+                            
+                            # 2. Generate email
+                            print("\nGenerating email pitch draft...")
+                            email_draft = prof_agent.generate_collaboration_email(selected_proj)
+                            print("\n" + "=" * 65)
+                            print("  COLLABORATION EMAIL DRAFT")
+                            print("=" * 65)
+                            print(f"Subject: {email_draft['subject']}")
+                            print(f"Body:\n{email_draft['body']}")
+                            print("=" * 65)
+                            
+                            # 3. Interactive feedback loop
+                            rating_in = input("\nWould you like to rate this response? (1-5, or press Enter to skip): ").strip()
+                            if rating_in:
+                                try:
+                                    rating = int(rating_in)
+                                    comments = input("Any comments? (Optional): ").strip()
+                                    prof_agent.log_feedback(q_log_id, rating, comments or None)
+                                    print("Thank you for your feedback!")
+                                except ValueError:
+                                    print("Invalid rating skipped.")
+                        else:
+                            print("Invalid selection. Action cancelled.")
+                    except ValueError:
+                        print("Invalid input. Action cancelled.")
+                else:
+                    print("\nAnalysis complete. Action layer skipped.")
+            except Exception as e:
+                print(f"\nAn error occurred running Professor Mode: {e}")
+                
+            continue
+
         # Run query through intent router
         try:
             result = chat_agent.run_query(query)

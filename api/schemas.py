@@ -45,3 +45,8 @@ class LogItem(BaseModel):
     response: str
     mode: str
     timestamp: str
+
+class ProfessorConfirmRequest(BaseModel):
+    topic: str
+    report: dict
+    project_idx: int
