@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from config.semantic_config import SEMANTIC_SCHOLAR_API_KEY, SEMANTIC_SCHOLAR_BASE_URL
 from utils.semantic_cache import SemanticCacheManager
-from db.database import get_db
+from db.database import get_db, get_cache_db
 from db.models import PaperEnrichment
 from core.logger import logger
 
@@ -207,7 +207,7 @@ class SemanticScholarService:
         """
         Enriches a local paper with Semantic Scholar metadata, saving results in SQLite.
         """
-        db: Session = next(get_db())
+        db: Session = next(get_cache_db())
         try:
             # Normalize title key to lower, alphanumeric only
             title_key = "".join(e for e in title.lower() if e.isalnum())

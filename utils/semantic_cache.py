@@ -6,7 +6,7 @@ Expirations default to 24 hours.
 import json
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from db.database import get_db
+from db.database import get_cache_db
 from db.models import SemanticCache
 from core.logger import logger
 
@@ -18,7 +18,7 @@ class SemanticCacheManager:
         """
         Retrieve a cached response if exists and not expired.
         """
-        db: Session = next(get_db())
+        db: Session = next(get_cache_db())
         try:
             now = datetime.now(timezone.utc)
             # Query db for cache key
@@ -52,7 +52,7 @@ class SemanticCacheManager:
         """
         Save response data into SQLite cache.
         """
-        db: Session = next(get_db())
+        db: Session = next(get_cache_db())
         try:
             now = datetime.now(timezone.utc)
             expires_at = now + timedelta(hours=ttl_hours)

@@ -3,17 +3,34 @@ Database initialization script.
 Creates all database tables in SQLite or PostgreSQL.
 """
 
-from db.database import engine, Base
+from db.database import engine, cache_engine, Base
 # Import models to register them
-from db.models import QueryLog, Recommendation, Collaboration, ProjectSuggestion, Feedback, FacultyWorkload
+from db.models import QueryLog, Recommendation, Collaboration, ProjectSuggestion, Feedback, FacultyWorkload, PaperEnrichment, SemanticCache
 from core.logger import logger
 
 def init_database():
     """Create all relational database tables."""
     logger.info("Initializing database schema...")
     try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully.")
+        # Define tables for student history (main DB - e.g. Supabase)
+        history_tables = [
+            QueryLog.__table__,
+            Recommendation.__table__,
+            Collaboration.__table__,
+            ProjectSuggestion.__table__,
+            Feedback.__table__
+        ]
+        # Define tables for local cache and workloads (local SQLite)
+        cache_tables = [
+            FacultyWorkload.__table__,
+            PaperEnrichment.__table__,
+            SemanticCache.__table__
+        ]
+
+        # Create tables on respective engines
+        Base.metadata.create_all(bind=engine, tables=history_tables)
+        Base.metadata.create_all(bind=cache_engine, tables=cache_tables)
+        logger.info("Database tables created successfully on main and local cache engines.")
         
         # Check/add role column to query_logs for backwards compatibility
         from sqlalchemy import text
@@ -29,12 +46,12 @@ def init_database():
         finally:
             db.close()
         
-        # Seed workloads if table is empty
-        from db.database import SessionLocal
-        db = SessionLocal()
+        # Seed workloads into the local cache database if empty
+        from db.database import CacheSessionLocal
+        db = CacheSessionLocal()
         try:
             if db.query(FacultyWorkload).count() == 0:
-                logger.info("Seeding initial faculty workloads...")
+                logger.info("Seeding initial faculty workloads in local SQLite cache...")
                 workloads = [
                     FacultyWorkload(
                         faculty_name="shirina samreen",
@@ -64,7 +81,7 @@ def init_database():
                 ]
                 db.add_all(workloads)
                 db.commit()
-                logger.info("Faculty workloads seeded successfully.")
+                logger.info("Faculty workloads seeded successfully in local SQLite cache.")
         except Exception as e:
             logger.error(f"Error seeding workloads: {e}")
             db.rollback()

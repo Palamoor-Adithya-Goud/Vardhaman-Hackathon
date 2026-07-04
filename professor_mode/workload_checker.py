@@ -4,7 +4,7 @@ Queries database for faculty active project count and flags overloaded candidate
 Provides candidate alternatives with lower workloads.
 """
 
-from db.database import SessionLocal
+from db.database import CacheSessionLocal
 from db.models import FacultyWorkload
 from utils.helpers import clean_professor_name
 from core.logger import logger
@@ -18,7 +18,7 @@ class WorkloadChecker:
         clean_name = clean_professor_name(faculty_name)
         logger.info(f"[WorkloadChecker] Checking workload for: '{faculty_name}' (clean: '{clean_name}')")
 
-        db = SessionLocal()
+        db = CacheSessionLocal()
         try:
             # Query workload using exact or fuzzy name match
             record = (
@@ -62,7 +62,7 @@ class WorkloadChecker:
         Returns a list of names.
         """
         clean_overloaded = clean_professor_name(overloaded_name)
-        db = SessionLocal()
+        db = CacheSessionLocal()
         alternatives = []
         try:
             records = (
