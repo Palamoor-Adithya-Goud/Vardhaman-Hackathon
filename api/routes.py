@@ -13,7 +13,9 @@ from api.schemas import (
     CollaborateRequest, CollaborateResponse,
     ProfessorModeRequest, ProfessorModeResponse,
     FeedbackRequest, FeedbackResponse, LogItem,
-    ProfessorConfirmRequest
+    ProfessorConfirmRequest,
+    PaperChatCreate, PaperChatResponse,
+    FacultyChatCreate, FacultyChatResponse
 )
 from agents.chat_agent import ChatAgent
 from memory.memory_store import MemoryStore
@@ -296,4 +298,135 @@ async def stats_endpoint():
         }
     except Exception as e:
         logger.error(f"General statistics loading failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/paper-chat", response_model=PaperChatResponse)
+async def post_paper_chat(request: PaperChatCreate):
+    """Saves a student-teacher discussion message to Supabase/DB."""
+    try:
+        from services.supabase_service import SupabaseService
+        res = SupabaseService.save_message(
+            paper_title=request.paper_title,
+            sender_name=request.sender_name,
+            sender_role=request.sender_role,
+            message=request.message
+        )
+        return PaperChatResponse(
+            id=res.get("id"),
+            paper_title=res["paper_title"],
+            sender_name=res["sender_name"],
+            sender_role=res["sender_role"],
+            message=res["message"],
+            timestamp=str(res["timestamp"])
+        )
+    except Exception as e:
+        logger.error(f"Failed to post paper chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/paper-chat", response_model=List[PaperChatResponse])
+async def get_paper_chats(paper_title: str):
+    """Retrieves all chat messages for a specific research paper."""
+    try:
+        from services.supabase_service import SupabaseService
+        messages = SupabaseService.get_messages(paper_title=paper_title)
+        return [
+            PaperChatResponse(
+                id=m.get("id"),
+                paper_title=m["paper_title"],
+                sender_name=m["sender_name"],
+                sender_role=m["sender_role"],
+                message=m["message"],
+                timestamp=str(m["timestamp"])
+            )
+            for m in messages
+        ]
+    except Exception as e:
+        logger.error(f"Failed to fetch paper chats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────
+# Faculty Direct Chat (Student → Faculty DMs)
+# ─────────────────────────────────────────────────────────────────
+
+@router.post("/faculty-chat", response_model=FacultyChatResponse)
+async def post_faculty_chat(request: FacultyChatCreate):
+    """Saves a direct student-to-faculty chat message."""
+    try:
+        from services.supabase_service import SupabaseService
+        res = SupabaseService.save_faculty_message(
+            faculty_name=request.faculty_name,
+            sender_name=request.sender_name,
+            sender_role=request.sender_role,
+            message=request.message
+        )
+        return FacultyChatResponse(
+            id=res.get("id"),
+            faculty_name=res["faculty_name"],
+            sender_name=res["sender_name"],
+            sender_role=res["sender_role"],
+            message=res["message"],
+            timestamp=str(res["timestamp"])
+        )
+    except Exception as e:
+        logger.error(f"Failed to post faculty chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty-chat", response_model=List[FacultyChatResponse])
+async def get_faculty_chats(faculty_name: str):
+    """Retrieves all chat messages for a specific faculty member."""
+    try:
+        from services.supabase_service import SupabaseService
+        messages = SupabaseService.get_faculty_messages(faculty_name=faculty_name)
+        return [
+            FacultyChatResponse(
+                id=m.get("id"),
+                faculty_name=m["faculty_name"],
+                sender_name=m["sender_name"],
+                sender_role=m["sender_role"],
+                message=m["message"],
+                timestamp=str(m["timestamp"])
+            )
+            for m in messages
+        ]
+    except Exception as e:
+        logger.error(f"Failed to fetch faculty chats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/faculty-chat/all")
+async def get_all_faculty_chats():
+    """Retrieves all faculty chat threads grouped by faculty name (for faculty inbox view)."""
+    try:
+        from db.database import SessionLocal
+        from db.models import FacultyChat
+        from sqlalchemy import func
+
+        db = SessionLocal()
+        try:
+            threads = (
+                db.query(
+                    FacultyChat.faculty_name,
+                    func.count(FacultyChat.id).label("message_count"),
+                    func.max(FacultyChat.timestamp).label("last_message_at")
+                )
+                .group_by(FacultyChat.faculty_name)
+                .order_by(func.max(FacultyChat.timestamp).desc())
+                .all()
+            )
+            return [
+                {
+                    "faculty_name": t.faculty_name,
+                    "message_count": t.message_count,
+                    "last_message_at": t.last_message_at.isoformat() if t.last_message_at else None
+                }
+                for t in threads
+            ]
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to fetch all faculty chat threads: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,452 @@
+/* ============================================================
+   faculty_chat.css — Direct Student-to-Faculty Messaging Styles
+   ============================================================ */
+
+/* ── Container Layout ── */
+.fc-container {
+  display: flex;
+  height: calc(100vh - var(--navbar-height));
+  overflow: hidden;
+}
+
+/* ── Left Sidebar — Faculty / Thread List ── */
+.fc-sidebar {
+  width: 320px;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.fc-sidebar-header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.fc-sidebar-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+#fc-search {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  transition: border-color var(--ease-fast);
+}
+
+#fc-search:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* ── Faculty / Thread List ── */
+.fc-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fc-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  border: 1px solid transparent;
+  background: transparent;
+  position: relative;
+}
+
+.fc-item:hover {
+  background: var(--bg-surface-2);
+  border-color: var(--border-subtle);
+}
+
+.fc-item.active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.fc-item-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: white;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.fc-item-avatar .online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-success);
+  border: 2px solid var(--bg-surface);
+}
+
+.fc-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.fc-item-name {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-item-domain {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.fc-item-time {
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.fc-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: white;
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+}
+
+/* ── Right Workspace ── */
+.fc-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-body);
+  position: relative;
+}
+
+.fc-workspace-header {
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 64px;
+}
+
+.fc-active-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 60%;
+}
+
+.fc-active-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+}
+
+.fc-active-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-active-domain {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.fc-username-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.fc-username-input {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  width: 150px;
+  font-size: var(--text-xs);
+  transition: border-color var(--ease-fast);
+}
+
+.fc-username-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* ── Messages Area ── */
+.fc-messages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  scroll-behavior: smooth;
+}
+
+/* ── Empty State ── */
+.fc-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-8);
+}
+
+.fc-empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-xl);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-5);
+  box-shadow: var(--shadow-glow);
+  animation: float 3s ease-in-out infinite;
+  color: white;
+}
+
+.fc-empty-state h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.fc-empty-state p {
+  font-size: var(--text-sm);
+  max-width: 400px;
+  line-height: var(--leading-relaxed);
+}
+
+/* ── Message Bubble Styling ── */
+.fc-message {
+  display: flex;
+  gap: var(--space-3);
+  animation: fade-in-up 0.3s ease forwards;
+  opacity: 0;
+}
+
+.fc-message.outgoing {
+  flex-direction: row-reverse;
+}
+
+.fc-msg-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  color: white;
+  flex-shrink: 0;
+}
+
+.fc-msg-content {
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fc-message.outgoing .fc-msg-content {
+  align-items: flex-end;
+}
+
+.fc-msg-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+}
+
+.fc-msg-sender {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+
+.fc-msg-role-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.fc-msg-role-badge.faculty {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.fc-msg-role-badge.student {
+  background: rgba(79, 70, 229, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(79, 70, 229, 0.3);
+}
+
+.fc-msg-bubble {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+}
+
+.fc-message:not(.outgoing) .fc-msg-bubble {
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+}
+
+.fc-message.outgoing .fc-msg-bubble {
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+}
+
+.fc-msg-time {
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 0 var(--space-2);
+}
+
+/* ── Date Separator ── */
+.fc-date-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+}
+
+.fc-date-separator::before,
+.fc-date-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.fc-date-separator span {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .fc-sidebar {
+    width: 100%;
+    position: absolute;
+    z-index: 10;
+    height: 100%;
+    transform: translateX(0);
+    transition: transform var(--ease-default);
+  }
+
+  .fc-sidebar.hidden {
+    transform: translateX(-100%);
+  }
+
+  .fc-workspace-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .fc-messages-area {
+    padding: var(--space-4);
+  }
+}
+
+/* ── Faculty Chat Input ── */
+#fc-chat-input {
+  flex: 1;
+  background: none;
+  border: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: var(--leading-relaxed);
+  max-height: 160px;
+  min-height: 24px;
+  overflow-y: auto;
+}
+
+#fc-chat-input::placeholder { color: var(--text-faint); }
+#fc-chat-input:focus { outline: none; }

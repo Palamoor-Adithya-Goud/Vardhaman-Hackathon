@@ -103,3 +103,31 @@ VALUES
     ('nimesh raj', 1, '["Network Security"]'::jsonb),
     ('gagandeep', 2, '["IoT based Health Monitoring", "Blockchain Security"]'::jsonb)
 ON CONFLICT (faculty_name) DO NOTHING;
+
+
+-- =========================================================================
+-- 9. Create paper_chats table for student-teacher discussions
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS paper_chats (
+    id SERIAL PRIMARY KEY,
+    paper_title VARCHAR(500) NOT NULL,
+    sender_name VARCHAR(200) NOT NULL,
+    sender_role VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_paper_chats_paper_title ON paper_chats(paper_title);
+
+
+-- =========================================================================
+-- 10. Direct student-to-faculty messaging table
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS faculty_chats (
+    id SERIAL PRIMARY KEY,
+    faculty_name VARCHAR(200) NOT NULL,
+    sender_name VARCHAR(200) NOT NULL,
+    sender_role VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_faculty_chats_faculty_name ON faculty_chats(faculty_name);

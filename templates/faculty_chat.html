@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analytics — Faculty Research Intelligence Platform</title>
+  <title>Faculty Chat — Faculty Research Intelligence Platform</title>
+  <meta name="description" content="Direct messaging between students and faculty members at Vardhaman University Research Platform">
   <link rel="stylesheet" href="../static/css/variables.css">
   <link rel="stylesheet" href="../static/css/base.css">
   <link rel="stylesheet" href="../static/css/layout.css">
   <link rel="stylesheet" href="../static/css/sidebar.css">
   <link rel="stylesheet" href="../static/css/navbar.css">
   <link rel="stylesheet" href="../static/css/cards.css">
-  <link rel="stylesheet" href="../static/css/analytics.css">
+  <link rel="stylesheet" href="../static/css/chat.css">
   <link rel="stylesheet" href="../static/css/animations.css">
   <link rel="stylesheet" href="../static/css/responsive.css">
+  <link rel="stylesheet" href="../static/css/faculty_chat.css">
 </head>
 <body>
   <div class="app-container">
@@ -61,6 +63,14 @@
           </span>
           <span class="nav-label">Paper Chat</span>
         </a>
+        <a href="faculty_chat.html" class="nav-item active" data-label="Faculty Chat">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Faculty Chat</span>
+        </a>
         <a href="faculty.html" class="nav-item" data-label="Faculty Explorer">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -68,14 +78,6 @@
             </svg>
           </span>
           <span class="nav-label">Faculty Explorer</span>
-        </a>
-        <a href="faculty_chat.html" class="nav-item" data-label="Faculty Chat">
-          <span class="nav-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-            </svg>
-          </span>
-          <span class="nav-label">Faculty Chat</span>
         </a>
         <span class="nav-section-label">Analysis</span>
         <a href="research_gap.html" class="nav-item" data-label="Gap Analysis">
@@ -104,7 +106,7 @@
           </span>
           <span class="nav-label">Citation Graph</span>
         </a>
-        <a href="analytics.html" class="nav-item active" data-label="Analytics">
+        <a href="analytics.html" class="nav-item" data-label="Analytics">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
@@ -137,70 +139,78 @@
         <div class="breadcrumb">
           <div class="breadcrumb-item"><a href="index.html">FRIP</a></div>
           <div class="breadcrumb-sep">/</div>
-          <div class="breadcrumb-item">Analytics</div>
+          <div class="breadcrumb-item">Faculty Chat</div>
         </div>
         <div class="navbar-actions">
-          <div class="model-badge">Llama-4-Scout</div>
+          <div class="model-badge" id="fc-mode-badge">Student Mode</div>
           <div class="user-avatar" title="User Profile">AD</div>
         </div>
       </nav>
 
       <!-- Page Content -->
-      <div class="page-content">
-        <div class="content-wrapper">
-          <div class="analytics-grid">
-            <!-- Row 1: Left Bar chart, Right Donut -->
-            <div class="analytics-panel">
-              <div class="analytics-header">
-                <h3 class="analytics-title">Faculty Publication Contribution</h3>
-              </div>
-              <div class="bar-chart-wrap" id="analytics-bar-chart">
-                <!-- Loaded dynamically -->
-              </div>
+      <div class="page-content" style="padding: 0;">
+        <div class="fc-container">
+          <!-- Left sidebar: Faculty / Conversation list -->
+          <div class="fc-sidebar">
+            <div class="fc-sidebar-header">
+              <div class="fc-sidebar-title" id="fc-sidebar-title">Choose a Faculty</div>
+              <input type="text" id="fc-search" placeholder="Search faculty..." aria-label="Search faculty">
             </div>
-
-            <div class="analytics-panel">
-              <div class="analytics-header">
-                <h3 class="analytics-title">RAG Intent Distribution</h3>
-              </div>
-              <div class="donut-wrapper">
-                <div class="donut-canvas-wrap" style="width:140px; height:140px;">
-                  <canvas id="analytics-donut-canvas"></canvas>
-                </div>
-                <div class="donut-legend" id="analytics-donut-legend">
-                  <!-- Legend items go here -->
-                </div>
-              </div>
+            <div class="fc-list" id="fc-list-container">
+              <!-- Rendered via JS -->
             </div>
+          </div>
 
-            <!-- Row 2: Full query logs table -->
-            <div class="analytics-panel analytics-full">
-              <div class="analytics-header">
-                <h3 class="analytics-title">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <path d="M12 6v6l4 2"/>
+          <!-- Right workspace: Chat thread -->
+          <div class="fc-workspace">
+            <div class="fc-workspace-header" id="fc-workspace-header">
+              <div class="fc-active-info">
+                <div class="fc-active-avatar" id="fc-active-avatar">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
                   </svg>
-                  Search Audit Logs & Intent Mapping
-                </h3>
+                </div>
+                <div>
+                  <div class="fc-active-name" id="fc-active-name">Select a faculty member</div>
+                  <div class="fc-active-domain" id="fc-active-domain">Start a conversation</div>
+                </div>
               </div>
-              <div style="overflow-x: auto;">
-                <table class="analytics-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Query</th>
-                      <th>Classified Intent</th>
-                      <th>Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody id="analytics-log-rows">
-                    <!-- Logs go here -->
-                  </tbody>
-                </table>
+              <div class="fc-username-wrap">
+                <label for="fc-username">Your Name:</label>
+                <input type="text" id="fc-username" class="fc-username-input" placeholder="Enter name...">
               </div>
             </div>
 
+            <!-- Messages area -->
+            <div class="fc-messages-area" id="fc-messages-container">
+              <div class="fc-empty-state">
+                <div class="fc-empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                  </svg>
+                </div>
+                <h3>Direct Faculty Messaging</h3>
+                <p id="fc-empty-desc">Select a faculty member from the list to start chatting. Your messages will appear in their inbox in real time.</p>
+              </div>
+            </div>
+
+            <!-- Chat input area -->
+            <div class="chat-input-area" style="border-top: 1px solid var(--border-color); background: var(--bg-surface);">
+              <div class="chat-input-wrapper">
+                <textarea id="fc-chat-input" rows="1" placeholder="Type your message..." aria-label="Chat message input" disabled></textarea>
+                <div class="chat-actions">
+                  <button class="send-btn ripple" id="fc-send-btn" disabled aria-label="Send Message">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="chat-footer-note" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span>Direct messaging stored in Supabase.</span>
+                <span id="fc-sync-indicator" style="color: var(--color-success); font-weight: var(--weight-semibold); font-size: 10px;">🟢 Live</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -208,7 +218,7 @@
   </div>
 
   <script type="module" src="../static/js/app.js"></script>
-  <script type="module" src="../static/js/analytics.js"></script>
+  <script type="module" src="../static/js/faculty_chat.js"></script>
   <script type="module">import { setupAuth } from '../static/js/auth.js'; setupAuth();</script>
 </body>
 </html>

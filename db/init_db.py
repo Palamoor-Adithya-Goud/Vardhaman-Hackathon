@@ -5,7 +5,7 @@ Creates all database tables in SQLite or PostgreSQL.
 
 from db.database import engine, cache_engine, Base
 # Import models to register them
-from db.models import QueryLog, Recommendation, Collaboration, ProjectSuggestion, Feedback, FacultyWorkload, PaperEnrichment, SemanticCache
+from db.models import QueryLog, Recommendation, Collaboration, ProjectSuggestion, Feedback, FacultyWorkload, PaperEnrichment, SemanticCache, ChatMessage, PaperChat, FacultyChat
 from core.logger import logger
 
 def init_database():
@@ -18,7 +18,10 @@ def init_database():
             Recommendation.__table__,
             Collaboration.__table__,
             ProjectSuggestion.__table__,
-            Feedback.__table__
+            Feedback.__table__,
+            ChatMessage.__table__,   # Chat turns for both student and faculty
+            PaperChat.__table__,     # Student-Teacher paper discussions
+            FacultyChat.__table__,   # Direct student-to-faculty DM messages
         ]
         # Define tables for local cache and workloads (local SQLite)
         cache_tables = [
@@ -32,19 +35,27 @@ def init_database():
         Base.metadata.create_all(bind=cache_engine, tables=cache_tables)
         logger.info("Database tables created successfully on main and local cache engines.")
         
-        # Check/add role column to query_logs for backwards compatibility
+        # Backwards-compatible column migrations using ALTER TABLE (silently ignored if already present)
         from sqlalchemy import text
         from db.database import SessionLocal
         db = SessionLocal()
-        try:
-            db.execute(text("ALTER TABLE query_logs ADD COLUMN role VARCHAR(50) DEFAULT 'student'"))
-            db.commit()
-            logger.info("Migrated database: role column added to query_logs.")
-        except Exception:
-            # Column already exists or other database engines where it's handled differently
-            db.rollback()
-        finally:
-            db.close()
+        migrations = [
+            ("ALTER TABLE query_logs ADD COLUMN role VARCHAR(50) DEFAULT 'student'",
+             "role column added to query_logs"),
+            ("ALTER TABLE query_logs ADD COLUMN session_id VARCHAR(100)",
+             "session_id column added to query_logs"),
+            ("ALTER TABLE query_logs ADD COLUMN sources_used TEXT",
+             "sources_used column added to query_logs"),
+        ]
+        for sql, label in migrations:
+            try:
+                db.execute(text(sql))
+                db.commit()
+                logger.info(f"Migrated database: {label}.")
+            except Exception:
+                # Column already exists or unsupported by the target engine – safe to ignore
+                db.rollback()
+        db.close()
         
         # Seed workloads into the local cache database if empty
         from db.database import CacheSessionLocal

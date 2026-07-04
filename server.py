@@ -70,9 +70,17 @@ async def read_dashboard():
 async def read_chat():
     return FileResponse(os.path.join(TEMPLATES_DIR, "chat.html"))
 
+@app.get("/paper_chat.html")
+async def read_paper_chat():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "paper_chat.html"))
+
 @app.get("/faculty.html")
 async def read_faculty():
     return FileResponse(os.path.join(TEMPLATES_DIR, "faculty.html"))
+
+@app.get("/faculty_chat.html")
+async def read_faculty_chat():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "faculty_chat.html"))
 
 @app.get("/research_gap.html")
 async def read_research_gap():

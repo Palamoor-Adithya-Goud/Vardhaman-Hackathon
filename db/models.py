@@ -14,8 +14,10 @@ class QueryLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     query_text = Column(String(500), nullable=False)
     response_text = Column(Text, nullable=False)
-    mode = Column(String(50), default="chat") # chat, collaborate, professor, etc.
-    role = Column(String(50), default="student") # student, faculty, etc.
+    mode = Column(String(50), default="chat")        # chat, collaborate, professor, etc.
+    role = Column(String(50), default="student")     # student, faculty
+    session_id = Column(String(100), nullable=True)  # browser session identifier
+    sources_used = Column(JSON, nullable=True)        # list of paper sources cited
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -23,6 +25,29 @@ class QueryLog(Base):
     collaborations = relationship("Collaboration", back_populates="query_log", cascade="all, delete-orphan")
     projects = relationship("ProjectSuggestion", back_populates="query_log", cascade="all, delete-orphan")
     feedback = relationship("Feedback", back_populates="query_log", cascade="all, delete-orphan")
+    messages = relationship("ChatMessage", back_populates="query_log", cascade="all, delete-orphan")
+
+
+class ChatMessage(Base):
+    """
+    Stores individual chat turns (user message + AI reply) for a session.
+    Linked to the parent QueryLog entry. Both student and faculty messages
+    are stored here in Supabase.
+    """
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    query_log_id = Column(Integer, ForeignKey("query_logs.id"), nullable=True)
+    session_id = Column(String(100), nullable=True, index=True)  # browser session
+    role = Column(String(50), nullable=False)             # 'student' or 'faculty'
+    sender = Column(String(20), nullable=False)           # 'user' or 'assistant'
+    message = Column(Text, nullable=False)                # actual message text
+    intent = Column(String(50), nullable=True)            # rag, collaborate, professor
+    paper_sources = Column(JSON, nullable=True)           # papers cited by the AI
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    # Link to query
+    query_log = relationship("QueryLog", back_populates="messages")
 
 
 class Recommendation(Base):
@@ -116,4 +141,35 @@ class SemanticCache(Base):
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+
+class PaperChat(Base):
+    """
+    Stores student-teacher messages about a specific research paper.
+    Persistent in Supabase with local SQLite fallback.
+    """
+    __tablename__ = "paper_chats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    paper_title = Column(String(500), nullable=False, index=True)
+    sender_name = Column(String(200), nullable=False)
+    sender_role = Column(String(50), nullable=False)   # 'student' or 'faculty'
+    message = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class FacultyChat(Base):
+    """
+    Direct student-to-faculty messaging.
+    A student picks a faculty member and sends messages directly.
+    Faculty can see all messages sent to them and reply.
+    Stored in Supabase with local SQLite fallback.
+    """
+    __tablename__ = "faculty_chats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    faculty_name = Column(String(200), nullable=False, index=True)  # faculty being messaged
+    sender_name = Column(String(200), nullable=False)               # who sent the message
+    sender_role = Column(String(50), nullable=False)                # 'student' or 'faculty'
+    message = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 

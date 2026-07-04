@@ -52,3 +52,36 @@ class ProfessorConfirmRequest(BaseModel):
     topic: str
     report: dict
     project_idx: int
+
+
+class PaperChatCreate(BaseModel):
+    paper_title: str
+    sender_name: str
+    sender_role: str
+    message: str
+
+
+class PaperChatResponse(BaseModel):
+    id: Optional[int] = None
+    paper_title: str
+    sender_name: str
+    sender_role: str
+    message: str
+    timestamp: str
+
+
+class FacultyChatCreate(BaseModel):
+    faculty_name: str
+    sender_name: str
+    sender_role: str
+    message: str
+
+
+class FacultyChatResponse(BaseModel):
+    id: Optional[int] = None
+    faculty_name: str
+    sender_name: str
+    sender_role: str
+    message: str
+    timestamp: str
+

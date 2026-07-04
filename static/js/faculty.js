@@ -219,5 +219,11 @@ function showDetails(member) {
   modalBio.textContent = member.bio;
   modalPaper.textContent = member.paper;
 
+  // Update the chat button to link to faculty chat with this member pre-selected
+  const chatBtn = document.getElementById('modal-chat-btn');
+  if (chatBtn) {
+    chatBtn.href = `faculty_chat.html?faculty=${encodeURIComponent(member.name)}`;
+  }
+
   window.openModal('faculty-detail-modal');
 }
