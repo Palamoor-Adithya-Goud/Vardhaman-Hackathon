@@ -1,86 +1,23 @@
 """
-Flask Server.
+FastAPI Server.
 Initializes database and coordinates middleware and router configuration.
 """
 
-from flask import Flask, send_from_directory, jsonify
+import uvicorn
 import os
-from api.routes import api_blueprint
-from routers.semantic_router import semantic_blueprint
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from api.routes import router
+from routers.semantic_router import semantic_router
 from db.init_db import init_database
 from core.logger import logger
 
-app = Flask(
-    __name__,
-    static_folder="static",
-    template_folder="templates"
-)
-
-# Configure CORS for frontend access
-@app.after_request
-def add_cors_headers(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "*")
-    response.headers.add("Access-Control-Allow-Methods", "*")
-    response.headers.add("Access-Control-Allow-Credentials", "true")
-    return response
-
-# Register API routes (Blueprints)
-app.register_blueprint(api_blueprint, url_prefix="/api")
-app.register_blueprint(semantic_blueprint, url_prefix="/api/semantic")
-
-# Serve HTML templates directly
-TEMPLATES_DIR = "templates"
-
-@app.route("/")
-@app.route("/index.html")
-def read_index():
-    return send_from_directory(TEMPLATES_DIR, "index.html")
-
-@app.route("/dashboard.html")
-def read_dashboard():
-    return send_from_directory(TEMPLATES_DIR, "dashboard.html")
-
-@app.route("/chat.html")
-def read_chat():
-    return send_from_directory(TEMPLATES_DIR, "chat.html")
-
-@app.route("/faculty.html")
-def read_faculty():
-    return send_from_directory(TEMPLATES_DIR, "faculty.html")
-
-@app.route("/research_gap.html")
-def read_research_gap():
-    return send_from_directory(TEMPLATES_DIR, "research_gap.html")
-
-@app.route("/collaboration.html")
-def read_collaboration():
-    return send_from_directory(TEMPLATES_DIR, "collaboration.html")
-
-@app.route("/citation_graph.html")
-def read_citation_graph():
-    return send_from_directory(TEMPLATES_DIR, "citation_graph.html")
-
-@app.route("/analytics.html")
-def read_analytics():
-    return send_from_directory(TEMPLATES_DIR, "analytics.html")
-
-@app.route("/profile.html")
-def read_profile():
-    return send_from_directory(TEMPLATES_DIR, "profile.html")
-
-@app.route("/<path:catchall>")
-def read_catchall(catchall):
-    path_404 = os.path.join(TEMPLATES_DIR, "404.html")
-    if os.path.exists(path_404):
-        return send_from_directory(TEMPLATES_DIR, "404.html"), 404
-    return jsonify({"error": "Page not found"}), 404
-
-# Export handler for Vercel Serverless Function compatibility
-handler = app
-
-# Database initialization during application startup
-with app.app_context():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup sequence
     try:
         init_database()
     except Exception as e:
@@ -89,6 +26,84 @@ with app.app_context():
         # On Vercel, catch it so the server can still run and serve static content.
         if not os.getenv("VERCEL"):
             raise
+    yield
+    # Shutdown sequence (no-op)
+    pass
+
+app = FastAPI(
+    title="Faculty Research RAG & Collaboration API",
+    description="Backend API for RAG, matchmaking, collaborations, and project recommendations.",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register API routes
+app.include_router(router, prefix="/api")
+app.include_router(semantic_router, prefix="/api/semantic", tags=["Semantic Scholar"])
+
+# Serve static assets
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve HTML templates directly
+TEMPLATES_DIR = "templates"
+
+@app.get("/")
+@app.get("/index.html")
+async def read_index():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "index.html"))
+
+@app.get("/dashboard.html")
+async def read_dashboard():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "dashboard.html"))
+
+@app.get("/chat.html")
+async def read_chat():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "chat.html"))
+
+@app.get("/faculty.html")
+async def read_faculty():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "faculty.html"))
+
+@app.get("/research_gap.html")
+async def read_research_gap():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "research_gap.html"))
+
+@app.get("/collaboration.html")
+async def read_collaboration():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "collaboration.html"))
+
+@app.get("/citation_graph.html")
+async def read_citation_graph():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "citation_graph.html"))
+
+@app.get("/analytics.html")
+async def read_analytics():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "analytics.html"))
+
+@app.get("/profile.html")
+async def read_profile():
+    return FileResponse(os.path.join(TEMPLATES_DIR, "profile.html"))
+
+@app.get("/{catchall:path}")
+async def read_catchall(catchall: str):
+    # Fallback to 404
+    path_404 = os.path.join(TEMPLATES_DIR, "404.html")
+    if os.path.exists(path_404):
+        return FileResponse(path_404, status_code=404)
+    return {"error": "Page not found"}
+
+# Export app for Vercel handler
+handler = app
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,34 +1,35 @@
 """
-Flask Integration Test Suite.
-Verifies routes and responses using Flask's built-in testing client.
+FastAPI Integration Test Suite.
+Verifies routes and responses using FastAPI's built-in TestClient.
 """
 
 import json
 import unittest
 import os
+from fastapi.testclient import TestClient
 from server import app
 
 # Ensure we simulate a clean/vercel context or local context properly
 os.environ["VERCEL"] = "1"  # Force Vercel mode to test path fallbacks safely
 
-class FlaskAPITestCase(unittest.TestCase):
+class FastAPITestCase(unittest.TestCase):
     
-    def setUp(self):
-        # Set up Flask test client
-        self.client = app.test_client()
-        app.config["TESTING"] = True
+    @classmethod
+    def setUpClass(cls):
+        # Set up FastAPI test client
+        cls.client = TestClient(app)
 
     def test_01_index_page(self):
         """Test serving index.html."""
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"<!DOCTYPE html>", response.data)
+        self.assertIn(b"<!DOCTYPE html>", response.content)
 
     def test_02_stats_endpoint(self):
         """Test GET /api/stats."""
         response = self.client.get("/api/stats")
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
+        data = response.json()
         self.assertIn("chunk_count", data)
         self.assertIn("paper_count", data)
         self.assertIn("total_queries", data)
@@ -41,7 +42,7 @@ class FlaskAPITestCase(unittest.TestCase):
         }
         response = self.client.post("/api/chat", json=payload)
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
+        data = response.json()
         self.assertIn("intent", data)
         self.assertIn("response_text", data)
         self.assertIn("data", data)
@@ -54,7 +55,7 @@ class FlaskAPITestCase(unittest.TestCase):
         }
         response = self.client.post("/api/recommend", json=payload)
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
+        data = response.json()
         self.assertEqual(data["intent"], "recommend")
         self.assertIn("response_text", data)
 
@@ -66,7 +67,7 @@ class FlaskAPITestCase(unittest.TestCase):
         }
         response = self.client.post("/api/collaborate", json=payload)
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
+        data = response.json()
         self.assertEqual(data["faculty_a"], "Shirina Samreen")
         self.assertEqual(data["faculty_b"], "Akhil Jabbar Meerja")
         self.assertIn("synergy_reason", data)
@@ -75,7 +76,7 @@ class FlaskAPITestCase(unittest.TestCase):
         """Test GET /api/logs."""
         response = self.client.get("/api/logs?role=student")
         self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
+        data = response.json()
         self.assertIsInstance(data, list)
 
     def test_07_invalid_json_payload(self):

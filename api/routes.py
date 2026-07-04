@@ -1,5 +1,5 @@
 """
-Flask Routes Blueprint.
+FastAPI Routes.
 Declares endpoints for chat, upload, collaboration, gap analysis, logs, and feedback.
 """
 
@@ -7,9 +7,7 @@ import os
 import shutil
 import tempfile
 from typing import List, Optional
-from flask import Blueprint, request, jsonify, abort
-from pydantic import ValidationError
-
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from api.schemas import (
     ChatRequest, ChatResponse, 
     CollaborateRequest, CollaborateResponse,
@@ -20,63 +18,47 @@ from api.schemas import (
 from agents.chat_agent import ChatAgent
 from memory.memory_store import MemoryStore
 from ingestion.ingest_pipeline import IngestPipeline
+from core.logger import logger
 
-api_blueprint = Blueprint("api", __name__)
+router = APIRouter()
 chat_agent = ChatAgent()
 memory = MemoryStore()
 ingest_pipeline = IngestPipeline()
 
-@api_blueprint.route("/chat", methods=["POST"])
-async def chat_endpoint():
+@router.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
     """Conversational endpoint routing to RAG, collaboration or gap analysis."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = ChatRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
-        res = chat_agent.run_query(req_data.query, role=req_data.role)
+        res = chat_agent.run_query(request.query, role=request.role)
         # Log to memory database automatically
         query_log_id = memory.log_query(
-            query_text=req_data.query,
+            query_text=request.query,
             response_text=res["response_text"],
             mode=res["intent"],
-            role=req_data.role
+            role=request.role
         )
         res["data"]["query_log_id"] = query_log_id
-        
-        resp_schema = ChatResponse(
+        return ChatResponse(
             intent=res["intent"],
             response_text=res["response_text"],
             data=res["data"]
         )
-        return jsonify(resp_schema.model_dump())
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/upload_pdf", methods=["POST"])
-async def upload_pdf_endpoint():
+@router.post("/upload_pdf")
+async def upload_pdf_endpoint(file: UploadFile = File(...)):
     """Uploads, cleans, chunks, and indexes a faculty profile PDF."""
-    if "file" not in request.files:
-        return jsonify({"detail": "No file part in the request"}), 400
-        
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"detail": "No file selected for uploading"}), 400
-        
     if not file.filename.endswith(".pdf"):
-        return jsonify({"detail": "Only PDF files are supported."}), 400
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
         
     try:
         # Create temp file
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, file.filename)
         
-        file.save(temp_path)
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
             
         chunks_count = ingest_pipeline.ingest_pdf(temp_path)
         
@@ -84,32 +66,23 @@ async def upload_pdf_endpoint():
         if os.path.exists(temp_path):
             os.remove(temp_path)
         
-        return jsonify({
+        return {
             "filename": file.filename,
             "status": "success",
             "chunks_ingested": chunks_count,
             "message": f"Successfully ingested {chunks_count} chunks from {file.filename}."
-        })
+        }
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/recommend", methods=["POST"])
-async def recommend_endpoint():
+@router.post("/recommend", response_model=ChatResponse)
+async def recommend_endpoint(request: ChatRequest):
     """Finds faculty matches based on research domains."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = ChatRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
         # Force standard RAG intent
-        rag_res = chat_agent.rag.run(req_data.query)
+        rag_res = chat_agent.rag.run(request.query)
         query_log_id = memory.log_query(
-            query_text=req_data.query,
+            query_text=request.query,
             response_text=rag_res["response_text"],
             mode="recommend"
         )
@@ -124,135 +97,95 @@ async def recommend_endpoint():
         memory.log_recommendations(query_log_id, recs)
         
         rag_res["query_log_id"] = query_log_id
-        
-        resp_schema = ChatResponse(
+        return ChatResponse(
             intent="recommend",
             response_text=rag_res["response_text"],
             data=rag_res
         )
-        return jsonify(resp_schema.model_dump())
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/collaborate", methods=["POST"])
-async def collaborate_endpoint():
+@router.post("/collaborate", response_model=CollaborateResponse)
+async def collaborate_endpoint(request: CollaborateRequest):
     """Evaluates fit and synergy between two faculty members."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = CollaborateRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
-        col_res = chat_agent.collaboration.suggest_collaboration(req_data.faculty_a, req_data.faculty_b)
+        col_res = chat_agent.collaboration.suggest_collaboration(request.faculty_a, request.faculty_b)
         if not col_res.get("success"):
-            return jsonify({"detail": col_res.get("error")}), 400
+            raise HTTPException(status_code=400, detail=col_res.get("error"))
             
         # Log to memory database
         query_log_id = memory.log_query(
-            query_text=f"Collaborate: {req_data.faculty_a} and {req_data.faculty_b}",
+            query_text=f"Collaborate: {request.faculty_a} and {request.faculty_b}",
             response_text=col_res["full_response"],
             mode="collaborate"
         )
         memory.log_collaborations(query_log_id, [{
-            "faculty_a": req_data.faculty_a,
-            "faculty_b": req_data.faculty_b,
+            "faculty_a": request.faculty_a,
+            "faculty_b": request.faculty_b,
             "synergy_reason": col_res["full_response"],
             "project_idea": col_res["full_response"]
         }])
         
-        resp_schema = CollaborateResponse(
-            faculty_a=req_data.faculty_a,
-            faculty_b=req_data.faculty_b,
+        return CollaborateResponse(
+            faculty_a=request.faculty_a,
+            faculty_b=request.faculty_b,
             synergy_reason=col_res["full_response"],
             project_idea=col_res["full_response"]
         )
-        return jsonify(resp_schema.model_dump())
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/professor-mode", methods=["POST"])
-async def professor_mode_endpoint():
+@router.post("/professor-mode", response_model=ProfessorModeResponse)
+async def professor_mode_endpoint(request: ProfessorModeRequest):
     """Gap analysis comparing local capabilities vs global research trends."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = ProfessorModeRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
-        prof_res = chat_agent.professor.analyze_gaps(req_data.topic)
+        prof_res = chat_agent.professor.analyze_gaps(request.topic)
         
         query_log_id = memory.log_query(
-            query_text=f"Professor Mode: {req_data.topic}",
+            query_text=f"Professor Mode: {request.topic}",
             response_text=prof_res["analysis"],
             mode="professor"
         )
         
-        resp_schema = ProfessorModeResponse(
-            topic=req_data.topic,
+        return ProfessorModeResponse(
+            topic=request.topic,
             analysis=prof_res["analysis"]
         )
-        return jsonify(resp_schema.model_dump())
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/professor/analyze", methods=["POST"])
-async def professor_analyze_endpoint():
+@router.post("/professor/analyze")
+async def professor_analyze_endpoint(request: ProfessorModeRequest):
     """Production-grade Professor Mode analysis (Trends, Gaps, Workloads, Projects)."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = ProfessorModeRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
         from professor_mode.professor_agent import ProfessorAgent
         prof_agent = ProfessorAgent()
-        report = prof_agent.run_analysis_report(req_data.topic)
-        return jsonify(report)
+        report = prof_agent.run_analysis_report(request.topic)
+        return report
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/professor/confirm", methods=["POST"])
-async def professor_confirm_endpoint():
+@router.post("/professor/confirm")
+async def professor_confirm_endpoint(request: ProfessorConfirmRequest):
     """Action Layer: Logs the selected project and generates academic email draft."""
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = ProfessorConfirmRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
         from professor_mode.professor_agent import ProfessorAgent
         prof_agent = ProfessorAgent()
         
         # 1. Log to DB
         q_log_id = prof_agent.log_recommendation_to_db(
-            topic=req_data.topic,
-            report=req_data.report,
-            project_idx=req_data.project_idx
+            topic=request.topic,
+            report=request.report,
+            project_idx=request.project_idx
         )
         if q_log_id == -1:
-            return jsonify({"detail": "Failed to log recommendation."}), 500
+            raise HTTPException(status_code=500, detail="Failed to log recommendation.")
 
         # 2. Get selected project
-        projects = req_data.report.get("project_suggestions", [])
-        if not (0 <= req_data.project_idx < len(projects)):
-            return jsonify({"detail": "Invalid project selection index."}), 400
-        selected_proj = projects[req_data.project_idx]
+        projects = request.report.get("project_suggestions", [])
+        if not (0 <= request.project_idx < len(projects)):
+            raise HTTPException(status_code=400, detail="Invalid project selection index.")
+        selected_proj = projects[request.project_idx]
 
         # 3. Generate email
         email_draft = prof_agent.generate_collaboration_email(selected_proj)
@@ -268,51 +201,36 @@ async def professor_confirm_endpoint():
             recipients=recipients
         )
 
-        return jsonify({
+        return {
             "status": "success",
             "query_log_id": q_log_id,
             "email_draft": email_draft
-        })
+        }
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/feedback", methods=["POST"])
-async def feedback_endpoint():
+@router.post("/feedback", response_model=FeedbackResponse)
+async def feedback_endpoint(request: FeedbackRequest):
     """Allows user feedback logging for queries."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"detail": "Missing JSON request body"}), 400
-            
-        try:
-            req_data = FeedbackRequest.model_validate(data)
-        except ValidationError as ve:
-            return jsonify({"detail": ve.errors()}), 422
-            
-        success = memory.log_user_feedback(
-            query_log_id=req_data.query_log_id,
-            rating=req_data.rating,
-            comments=req_data.comments
-        )
-        if not success:
-            return jsonify({"detail": "Failed to record feedback."}), 400
-            
-        resp_schema = FeedbackResponse(success=True, message="Feedback logged successfully.")
-        return jsonify(resp_schema.model_dump())
-    except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+    success = memory.log_user_feedback(
+        query_log_id=request.query_log_id,
+        rating=request.rating,
+        comments=request.comments
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to record feedback.")
+    return FeedbackResponse(success=True, message="Feedback logged successfully.")
 
-@api_blueprint.route("/logs", methods=["GET"])
-async def logs_endpoint():
+@router.get("/logs", response_model=List[LogItem])
+async def logs_endpoint(role: Optional[str] = None):
     """Fetch audit history logs, optionally filtered by role."""
     try:
-        role = request.args.get("role")
         logs = memory.get_recent_logs(role=role)
-        return jsonify([LogItem(**log).model_dump() for log in logs])
+        return [LogItem(**log) for log in logs]
     except Exception as e:
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_blueprint.route("/stats", methods=["GET"])
+@router.get("/stats")
 async def stats_endpoint():
     """Dashboard statistics: faculty, papers, queries, domains."""
     try:
@@ -365,7 +283,7 @@ async def stats_endpoint():
             mode = log.get("mode", "rag")
             intent_counts[mode] = intent_counts.get(mode, 0) + 1
 
-        return jsonify({
+        return {
             "chunk_count": chunk_count,
             "paper_count": paper_count,
             "faculty_count": 8,
@@ -375,7 +293,7 @@ async def stats_endpoint():
             "papers": papers_list,
             "intent_breakdown": intent_counts,
             "model": settings.GROQ_MODEL.split("/")[-1],
-        })
+        }
     except Exception as e:
         logger.error(f"General statistics loading failed: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

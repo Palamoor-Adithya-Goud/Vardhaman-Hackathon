@@ -1,16 +1,16 @@
 """
-semantic_router.py — Flask router for Semantic Scholar services.
+semantic_router.py — FastAPI router for Semantic Scholar services.
 Defines endpoints for paper details, search, related recommendations, and trends.
 """
 
+from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
-from flask import Blueprint, request, jsonify
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from services.semantic_scholar_service import SemanticScholarService
 from rag.retriever import ChromaRetriever
 from core.logger import logger
 
-semantic_blueprint = Blueprint("semantic", __name__)
+semantic_router = APIRouter()
 s2_service = SemanticScholarService()
 retriever = ChromaRetriever()
 
@@ -74,83 +74,73 @@ class RecommendResponse(BaseModel):
 
 # --- Endpoints ---
 
-@semantic_blueprint.route("/search", methods=["GET"])
-async def search_endpoint():
+@semantic_router.get("/search", response_model=List[PaperResponse])
+async def search_endpoint(
+    query: str = Query(..., description="The query string to search papers"),
+    limit: int = Query(10, description="Max results limit")
+):
     """Search papers on Semantic Scholar."""
-    query = request.args.get("query")
-    if not query:
-        return jsonify({"detail": "Missing query parameter"}), 400
-    limit = request.args.get("limit", default=10, type=int)
-    
     try:
-        results = await s2_service.search_papers(query, limit)
-        validated = [PaperResponse.model_validate(p).model_dump() for p in results]
-        return jsonify(validated)
+        return await s2_service.search_papers(query, limit)
     except Exception as e:
         logger.error(f"[S2 Router] Search error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/paper/<paper_id>", methods=["GET"])
+@semantic_router.get("/paper/{paper_id}", response_model=PaperResponse)
 async def paper_details_endpoint(paper_id: str):
     """Retrieve full details of a paper by ID."""
     try:
         details = await s2_service.get_paper_details(paper_id)
         if not details:
-            return jsonify({"detail": "Paper not found on Semantic Scholar"}), 404
-        validated = PaperResponse.model_validate(details).model_dump()
-        return jsonify(validated)
+            raise HTTPException(status_code=404, detail="Paper not found on Semantic Scholar")
+        return details
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[S2 Router] Paper details error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/author/<author_id>", methods=["GET"])
+@semantic_router.get("/author/{author_id}", response_model=AuthorResponse)
 async def author_details_endpoint(author_id: str):
     """Retrieve author information and publications."""
     try:
         details = await s2_service.get_author_details(author_id)
         if not details:
-            return jsonify({"detail": "Author not found on Semantic Scholar"}), 404
-        validated = AuthorResponse.model_validate(details).model_dump()
-        return jsonify(validated)
+            raise HTTPException(status_code=404, detail="Author not found on Semantic Scholar")
+        return details
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[S2 Router] Author details error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/related", methods=["GET"])
-async def related_endpoint():
+@semantic_router.get("/related", response_model=List[RelatedResponse])
+async def related_endpoint(
+    paper_id: str = Query(..., description="The Semantic Scholar paper ID"),
+    limit: int = Query(5, description="Max recommendations limit")
+):
     """Find related papers for a given paper ID."""
-    paper_id = request.args.get("paper_id")
-    if not paper_id:
-        return jsonify({"detail": "Missing paper_id parameter"}), 400
-    limit = request.args.get("limit", default=5, type=int)
-    
     try:
-        results = await s2_service.get_related_papers(paper_id, limit)
-        validated = [RelatedResponse.model_validate(p).model_dump() for p in results]
-        return jsonify(validated)
+        return await s2_service.get_related_papers(paper_id, limit)
     except Exception as e:
         logger.error(f"[S2 Router] Related papers error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/graph/<paper_id>", methods=["GET"])
+@semantic_router.get("/graph/{paper_id}", response_model=CitationGraphResponse)
 async def citation_graph_endpoint(paper_id: str):
     """Retrieve citation relationship data formatted for NetworkX / PyVis."""
     try:
-        graph_data = await s2_service.generate_citation_graph(paper_id)
-        validated = CitationGraphResponse.model_validate(graph_data).model_dump()
-        return jsonify(validated)
+        return await s2_service.generate_citation_graph(paper_id)
     except Exception as e:
         logger.error(f"[S2 Router] Graph generation error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/trends", methods=["GET"])
-async def trends_endpoint():
+@semantic_router.get("/trends", response_model=HybridSearchResponse)
+async def trends_endpoint(
+    query: str = Query(..., description="Trend topic search query"),
+    limit: int = Query(5, description="Limit for both local and external papers")
+):
     """Hybrid trend search combining local ChromaDB context and Semantic Scholar search."""
-    query = request.args.get("query")
-    if not query:
-        return jsonify({"detail": "Missing query parameter"}), 400
-    limit = request.args.get("limit", default=5, type=int)
-    
     try:
         # Get external results
         external_results = await s2_service.search_papers(query, limit=limit)
@@ -177,23 +167,17 @@ async def trends_endpoint():
                     "venue": enriched.get("venue") if enriched else None
                 })
 
-        resp = {
+        return {
             "local_papers": local_papers,
             "external_papers": external_results
         }
-        validated = HybridSearchResponse.model_validate(resp).model_dump()
-        return jsonify(validated)
     except Exception as e:
         logger.error(f"[S2 Router] Trends error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@semantic_blueprint.route("/recommend", methods=["GET"])
-async def recommend_endpoint():
+@semantic_router.get("/recommend", response_model=RecommendResponse)
+async def recommend_endpoint(query: str = Query(..., description="Topic of interest")):
     """Recommend papers classified into highly cited, similar, and latest categories."""
-    query = request.args.get("query")
-    if not query:
-        return jsonify({"detail": "Missing query parameter"}), 400
-        
     try:
         # Search for general papers
         papers = await s2_service.search_papers(query, limit=15)
@@ -209,13 +193,11 @@ async def recommend_endpoint():
             reverse=True
         )[:5]
 
-        resp = {
+        return {
             "highly_cited": highly_cited,
             "similar": similar,
             "latest": latest
         }
-        validated = RecommendResponse.model_validate(resp).model_dump()
-        return jsonify(validated)
     except Exception as e:
         logger.error(f"[S2 Router] Recommend error: {e}")
-        return jsonify({"detail": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
