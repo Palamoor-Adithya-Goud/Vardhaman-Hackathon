@@ -12,7 +12,7 @@ from core.logger import logger
 
 def main():
     print("=" * 65)
-    print("🎓 Faculty Research Assistant RAG + Collaboration Platform")
+    print("  Faculty Research Assistant RAG + Collaboration Platform")
     print("=" * 65)
     
     # 1. Initialize DB tables
