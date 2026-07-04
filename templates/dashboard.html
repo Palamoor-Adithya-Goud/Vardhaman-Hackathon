@@ -31,6 +31,8 @@
           <span class="logo-tagline">Vardhaman Univ</span>
         </div>
       </a>
+      <!-- Role Badge -->
+      <div id="sidebar-role-badge" style="margin: 0 var(--space-4) var(--space-3); display: flex; align-items: center; justify-content: space-between;"></div>
       <div class="sidebar-nav">
         <span class="nav-section-label">General</span>
         <a href="dashboard.html" class="nav-item active" data-label="Dashboard">
@@ -290,5 +292,49 @@
 
   <script type="module" src="../static/js/app.js"></script>
   <script type="module" src="../static/js/dashboard.js"></script>
+
+  <!-- Role guard + badge -->
+  <script>
+    (function() {
+      const role = localStorage.getItem('frip_role');
+      if (!role) {
+        window.location.replace('index.html');
+        return;
+      }
+      // Inject role badge into sidebar
+      const badge = document.getElementById('sidebar-role-badge');
+      if (badge) {
+        const isStudent = role === 'student';
+        badge.innerHTML = `
+          <span style="
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            background: ${isStudent ? 'rgba(79,70,229,0.15)' : 'rgba(16,185,129,0.15)'};
+            border: 1px solid ${isStudent ? 'rgba(79,70,229,0.4)' : 'rgba(16,185,129,0.4)'};
+            color: ${isStudent ? '#818cf8' : '#34d399'};
+          ">
+            ${isStudent ? '🎓' : '👨‍🏫'} ${isStudent ? 'Student' : 'Faculty'}
+          </span>
+          <button onclick="logout()" title="Sign out" style="
+            background: none; border: none; cursor: pointer; padding: 4px;
+            color: var(--text-muted); border-radius: 6px; display: flex;
+            transition: color 0.2s;
+          " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color=''">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        `;
+      }
+    })();
+
+    function logout() {
+      localStorage.removeItem('frip_role');
+      localStorage.removeItem('frip_role_set_at');
+      window.location.href = 'index.html';
+    }
+  </script>
 </body>
 </html>
