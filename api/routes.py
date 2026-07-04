@@ -319,23 +319,37 @@ async def stats_endpoint():
         import chromadb
         from core.config import settings
 
-        # ChromaDB stats
-        client = chromadb.CloudClient(
-            api_key=settings.CHROMA_API_KEY,
-            tenant=settings.CHROMA_TENANT,
-            database=settings.CHROMA_DATABASE,
-        )
-        col = client.get_or_create_collection(settings.CHROMA_COLLECTION_NAME)
-        chunk_count = col.count()
+        # ChromaDB stats (wrapped in try-catch to prevent dashboard crash on DB connection failure)
+        chunk_count = 0
+        paper_count = 0
+        papers_list = []
+        try:
+            mode = os.getenv("CHROMA_MODE", "remote").strip().lower()
+            if mode == "remote":
+                client = chromadb.CloudClient(
+                    api_key=settings.CHROMA_API_KEY,
+                    tenant=settings.CHROMA_TENANT,
+                    database=settings.CHROMA_DATABASE,
+                )
+            else:
+                persist_dir = os.getenv("CHROMA_PERSIST_DIRECTORY", "./chromadb_data")
+                client = chromadb.PersistentClient(path=persist_dir)
 
-        # Get distinct sources from ChromaDB
-        sample = col.get(limit=300, include=["metadatas"])
-        sources = {}
-        for m in sample["metadatas"]:
-            src = m.get("source", "unknown")
-            sources[src] = sources.get(src, 0) + 1
+            col = client.get_or_create_collection(settings.CHROMA_COLLECTION_NAME)
+            chunk_count = col.count()
 
-        paper_count = len(sources)
+            # Get distinct sources from ChromaDB
+            sample = col.get(limit=300, include=["metadatas"])
+            sources = {}
+            for m in sample["metadatas"]:
+                src = m.get("source", "unknown")
+                sources[src] = sources.get(src, 0) + 1
+
+            paper_count = len(sources)
+            papers_list = list(sources.keys())
+        except Exception as chroma_err:
+            logger.error(f"ChromaDB statistics loading failed: {chroma_err}")
+            # Keep default fallback values (0) so the rest of dashboard can load
 
         domains = [
             "Agriculture AI", "Machine Learning", "IoT", "Healthcare",
@@ -358,9 +372,10 @@ async def stats_endpoint():
             "domain_count": len(domains),
             "total_queries": total_queries,
             "domains": domains,
-            "papers": list(sources.keys()),
+            "papers": papers_list,
             "intent_breakdown": intent_counts,
             "model": settings.GROQ_MODEL.split("/")[-1],
         })
     except Exception as e:
+        logger.error(f"General statistics loading failed: {e}")
         return jsonify({"detail": str(e)}), 500

@@ -4,7 +4,9 @@
  * @module api
  */
 
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8000'
+  ? 'http://localhost:8000/api'
+  : '/api';
 
 /**
  * Core fetch wrapper with loading states and error handling.
