@@ -285,3 +285,9 @@
   .sidebar-overlay.active { display: block; }
   .sidebar-toggle { display: none; }
 }
+
+/* --- Role-based Sidebar Navigation Gate --- */
+html[data-user-role="student"] .sidebar-nav a[href*="faculty_chat.html"],
+html[data-user-role="student"] #modal-chat-btn {
+  display: none !important;
+}
