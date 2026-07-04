@@ -42,11 +42,19 @@ class RagPipeline:
             is_fallback_active = True
             
             # Fetch latest academic papers from arXiv
-            arxiv_results = self.arxiv.search_papers(query, max_results=3)
+            try:
+                arxiv_results = self.arxiv.search_papers(query, max_results=3)
+            except Exception as e:
+                logger.error(f"arXiv fallback query failed: {e}")
+                arxiv_results = []
             external_papers = arxiv_results
             
             # Fetch current trends from web search (Tavily)
-            web_results = self.tavily.search(query, max_results=3)
+            try:
+                web_results = self.tavily.search(query, max_results=3)
+            except Exception as e:
+                logger.error(f"Tavily fallback query failed: {e}")
+                web_results = []
             external_web = web_results
             
             # Synthesize external knowledge description

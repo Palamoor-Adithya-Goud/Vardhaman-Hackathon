@@ -42,6 +42,24 @@ class GroqService:
             logger.debug(f"Groq response: {len(content)} chars")
             return content
         except Exception as e:
+            error_str = str(e).lower()
+            if "rate_limit" in error_str or "429" in error_str or "rate limit" in error_str:
+                fallback_model = "llama-3.1-8b-instant"
+                logger.warning(f"Groq rate limit hit for {self._model}. Retrying with fallback: {fallback_model}")
+                try:
+                    response = self._client.chat.completions.create(
+                        model=fallback_model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    return response.choices[0].message.content
+                except Exception as fallback_err:
+                    logger.error(f"Groq fallback model {fallback_model} also failed: {fallback_err}")
+            
             logger.error(f"Groq API error: {e}")
             raise
 
@@ -63,5 +81,20 @@ class GroqService:
             )
             return response.choices[0].message.content
         except Exception as e:
+            error_str = str(e).lower()
+            if "rate_limit" in error_str or "429" in error_str or "rate limit" in error_str:
+                fallback_model = "llama-3.1-8b-instant"
+                logger.warning(f"Groq rate limit hit for {self._model}. Retrying with fallback: {fallback_model}")
+                try:
+                    response = self._client.chat.completions.create(
+                        model=fallback_model,
+                        messages=full_messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    return response.choices[0].message.content
+                except Exception as fallback_err:
+                    logger.error(f"Groq fallback model {fallback_model} also failed: {fallback_err}")
+            
             logger.error(f"Groq API error: {e}")
             raise

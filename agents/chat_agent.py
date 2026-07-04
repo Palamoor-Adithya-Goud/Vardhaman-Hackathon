@@ -54,6 +54,9 @@ class ChatAgent:
 
     def run_query(self, query: str) -> dict:
         """Classifies, routes, and processes the query, returning structured response data."""
+        from utils.helpers import sanitize_user_query
+        query = sanitize_user_query(query)
+        
         clf = self.classify_intent(query)
         intent = clf.get("intent", "rag")
         names = clf.get("names", [])
