@@ -68,15 +68,32 @@ Question: {question}
 
 Answer:"""
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.3,
-        max_tokens=1024,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=1024,
+        )
+    except Exception as e:
+        error_str = str(e).lower()
+        if "rate_limit" in error_str or "429" in error_str or "rate limit" in error_str:
+            fallback_model = "llama-3.1-8b-instant"
+            print(f"\n[WARNING] Groq rate limit hit for {model}. Retrying with fallback: {fallback_model}...")
+            response = client.chat.completions.create(
+                model=fallback_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,
+                max_tokens=1024,
+            )
+        else:
+            raise e
 
     return response.choices[0].message.content
 
