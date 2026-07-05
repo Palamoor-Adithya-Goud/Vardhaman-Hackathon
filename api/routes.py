@@ -259,12 +259,16 @@ async def stats_endpoint():
             col = client.get_or_create_collection(settings.CHROMA_COLLECTION_NAME)
             chunk_count = col.count()
 
-            # Get distinct sources from ChromaDB
-            sample = col.get(limit=300, include=["metadatas"])
+            # Get distinct sources from ChromaDB using pagination (batches of 100) to bypass 300 limit/quota restrictions
             sources = {}
-            for m in sample["metadatas"]:
-                src = m.get("source", "unknown")
-                sources[src] = sources.get(src, 0) + 1
+            batch_size = 100
+            for offset in range(0, chunk_count, batch_size):
+                sample = col.get(limit=batch_size, offset=offset, include=["metadatas"])
+                batch_metadatas = sample.get("metadatas", [])
+                for m in batch_metadatas:
+                    if m:
+                        src = m.get("source", "unknown")
+                        sources[src] = sources.get(src, 0) + 1
 
             paper_count = len(sources)
             papers_list = list(sources.keys())

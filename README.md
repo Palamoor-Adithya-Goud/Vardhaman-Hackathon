@@ -117,12 +117,20 @@ python -m db.init_db
 ## 🚀 Running the Platform
 
 ### A. Start the Backend API Server & UI
+
+**For Local Development:**
 Launch the FastAPI development environment:
 ```bash
 python server.py
 ```
 * The API endpoints will start listening at: [http://localhost:8000/api](http://localhost:8000/api)
 * The polished Web Dashboard will be served at: [http://localhost:8000/dashboard.html](http://localhost:8000/dashboard.html)
+
+**For Production / Render Deployment:**
+Use Uvicorn to run the server in a production environment:
+```bash
+uvicorn server:app --host 0.0.0.0 --port $PORT
+```
 
 ### B. Launch Terminal CLI Session
 For text-only interactions, run the command-line client:

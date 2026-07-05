@@ -10,6 +10,25 @@ from agents.chat_agent import ChatAgent
 from memory.memory_store import MemoryStore
 from core.logger import logger
 
+def prompt_session_feedback(last_log_id):
+    if last_log_id is not None:
+        print("\n" + "=" * 65)
+        print("  FEEDBACK & SURVEY")
+        print("=" * 65)
+        feedback_input = input("Would you like to rate your overall experience? (1-5, or press Enter to skip): ").strip()
+        if feedback_input.isdigit():
+            rating = int(feedback_input)
+            comments = input("Any final comments or suggestions? (Optional): ").strip()
+            memory = MemoryStore()
+            memory.log_user_feedback(
+                query_log_id=last_log_id,
+                rating=rating,
+                comments=comments if comments else None
+            )
+            print("Thank you for your feedback! Your rating has been saved.")
+        else:
+            print("Feedback skipped.")
+
 def main():
     print("=" * 65)
     print("  Faculty Research Assistant RAG + Collaboration Platform")
@@ -37,16 +56,20 @@ def main():
     print("You can switch roles using: '/role student' or '/role faculty'")
     print("Type 'exit' or 'quit' to terminate the session.\n")
     
+    last_query_log_id = None
+    
     while True:
         try:
             query = input("You: ").strip()
         except (KeyboardInterrupt, EOFError):
+            prompt_session_feedback(last_query_log_id)
             print("\nGoodbye!")
             break
             
         if not query:
             continue
         if query.lower() in ("exit", "quit", "q"):
+            prompt_session_feedback(last_query_log_id)
             print("Goodbye!")
             break
             
@@ -117,6 +140,7 @@ def main():
                             q_log_id = prof_agent.log_recommendation_to_db(topic, report, choice_idx)
                             if q_log_id != -1:
                                 print("\nRecommendation successfully logged.")
+                                last_query_log_id = q_log_id
                             
                             # 2. Generate email
                             print("\nGenerating email pitch draft...")
@@ -139,17 +163,6 @@ def main():
                                 body=email_draft["body"],
                                 recipients=recipients
                             )
-                            
-                            # 3. Interactive feedback loop
-                            rating_in = input("\nWould you like to rate this response? (1-5, or press Enter to skip): ").strip()
-                            if rating_in:
-                                try:
-                                    rating = int(rating_in)
-                                    comments = input("Any comments? (Optional): ").strip()
-                                    prof_agent.log_feedback(q_log_id, rating, comments or None)
-                                    print("Thank you for your feedback!")
-                                except ValueError:
-                                    print("Invalid rating skipped.")
                         else:
                             print("Invalid selection. Action cancelled.")
                     except ValueError:
@@ -200,6 +213,7 @@ def main():
                 )
                 
                 if query_log_id != -1:
+                    last_query_log_id = query_log_id
                     # Save context-specific data
                     if intent == "rag":
                         recs = []
@@ -227,20 +241,6 @@ def main():
                         }])
                         
                     print("Recommendation successfully logged.")
-                    
-                    # FeedBack system
-                    feedback_input = input("Would you like to rate this response? (1-5, or press Enter to skip): ").strip()
-                    if feedback_input.isdigit():
-                        rating = int(feedback_input)
-                        comments = input("Any comments? (Optional): ").strip()
-                        memory.log_user_feedback(
-                            query_log_id=query_log_id,
-                            rating=rating,
-                            comments=comments if comments else None
-                        )
-                        print("Thank you for your feedback!")
-                    else:
-                        print("Feedback skipped.")
                 else:
                     print("Error: Could not record log entry.")
             else:

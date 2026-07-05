@@ -5,6 +5,7 @@
 
 import { getRole } from './auth.js';
 import { toast } from './toast.js';
+import { getStats } from './api.js';
 
 // Faculty Seed Data matching paper author profiles to get the list of papers
 const FACULTY_MEMBERS = [
@@ -55,6 +56,7 @@ let selectedPaper = null;
 let currentMessages = [];
 let pollingInterval = null;
 let userRole = 'student';
+let dynamicPapers = [];
 
 // DOM Elements
 const papersListContainer = document.getElementById('papers-list-container');
@@ -67,7 +69,7 @@ const paperChatInput = document.getElementById('paper-chat-input');
 const paperChatSendBtn = document.getElementById('paper-chat-send-btn');
 const syncIndicator = document.getElementById('chat-sync-indicator');
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Determine role
   userRole = getRole() || 'student';
   
@@ -83,8 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('frip_username', chatUsername.value.replace(/^(Professor|Student)\s+/, ''));
   });
 
-  // Render list of papers
-  renderPapersList();
+  // Render list of papers dynamically from Chroma DB
+  await loadDynamicPapers();
 
   // Search input filter
   if (paperSearchInput) {
@@ -113,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function renderPapersList(filter = '') {
   papersListContainer.innerHTML = '';
-  const filtered = FACULTY_MEMBERS.filter(f => 
+  const filtered = dynamicPapers.filter(f => 
     f.paper.toLowerCase().includes(filter) || f.name.toLowerCase().includes(filter) || f.domain.toLowerCase().includes(filter)
   );
 
@@ -132,6 +134,59 @@ function renderPapersList(filter = '') {
     item.addEventListener('click', () => selectPaper(p));
     papersListContainer.appendChild(item);
   });
+}
+
+async function loadDynamicPapers() {
+  try {
+    const stats = await getStats();
+    const chromaPapers = stats.papers || [];
+    
+    const merged = [];
+    const seenPapers = new Set();
+    
+    chromaPapers.forEach(paperName => {
+      seenPapers.add(paperName.toLowerCase());
+      const matched = FACULTY_MEMBERS.find(f => 
+        f.paper.toLowerCase() === paperName.toLowerCase() || 
+        paperName.toLowerCase().includes(f.paper.toLowerCase()) || 
+        f.paper.toLowerCase().includes(paperName.toLowerCase())
+      );
+      
+      if (matched) {
+        merged.push({
+          name: matched.name,
+          paper: paperName,
+          domain: matched.domain
+        });
+      } else {
+        let authorName = "Unknown Faculty";
+        let domainName = "General Research";
+        
+        const nameMatch = paperName.match(/_([A-Za-z]+)\.pdf$/i);
+        if (nameMatch) {
+          const rawName = nameMatch[1];
+          authorName = "Dr. " + rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+        }
+        
+        merged.push({
+          name: authorName,
+          paper: paperName,
+          domain: domainName
+        });
+      }
+    });
+    
+    if (merged.length === 0) {
+      dynamicPapers = [...FACULTY_MEMBERS];
+    } else {
+      dynamicPapers = merged;
+    }
+  } catch (err) {
+    console.error('Failed to load dynamic papers from Chroma:', err);
+    dynamicPapers = [...FACULTY_MEMBERS];
+  }
+  
+  renderPapersList();
 }
 
 function selectPaper(paper) {

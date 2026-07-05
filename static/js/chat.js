@@ -14,6 +14,9 @@ const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('chat-send-btn');
 const welcomeScreen = document.getElementById('chat-welcome');
 
+// Conversation State
+let lastQueryLogId = null;
+
 // Load query from URL if passed (e.g. from global search)
 document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -84,6 +87,9 @@ async function handleSend() {
 
     // 4. Render AI Message
     appendMessage(result.response_text, 'ai', result.data, result.intent);
+    if (result.data && result.data.query_log_id) {
+      lastQueryLogId = result.data.query_log_id;
+    }
 
   } catch (err) {
     typingIndicator.remove();
@@ -160,19 +166,13 @@ function appendMessage(text, sender, data = null, intent = '') {
 }
 
 /**
- * Renders copy, like, dislike buttons
+ * Renders copy button
  */
 function renderActions(queryLogId, text) {
   return `
     <div class="message-actions">
       <button class="msg-action-btn copy-btn" title="Copy response">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-      <button class="msg-action-btn feedback-btn up" data-rating="5" title="Helpful response">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-      </button>
-      <button class="msg-action-btn feedback-btn down" data-rating="1" title="Unhelpful response">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm8-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
       </button>
     </div>
   `;
@@ -183,8 +183,6 @@ function renderActions(queryLogId, text) {
  */
 function bindMessageActions(messageEl, queryLogId, text) {
   const copyBtn = messageEl.querySelector('.copy-btn');
-  const upBtn = messageEl.querySelector('.feedback-btn.up');
-  const downBtn = messageEl.querySelector('.feedback-btn.down');
 
   if (copyBtn) {
     copyBtn.addEventListener('click', async () => {
@@ -196,22 +194,6 @@ function bindMessageActions(messageEl, queryLogId, text) {
       }
     });
   }
-
-  const handleRating = async (rating) => {
-    try {
-      await submitFeedback(queryLogId, rating);
-      toast.success('Thank you for your feedback!');
-      upBtn.disabled = true;
-      downBtn.disabled = true;
-      upBtn.style.opacity = '0.5';
-      downBtn.style.opacity = '0.5';
-    } catch (err) {
-      toast.error('Failed to log feedback.');
-    }
-  };
-
-  if (upBtn) upBtn.addEventListener('click', () => handleRating(5));
-  if (downBtn) downBtn.addEventListener('click', () => handleRating(1));
 }
 
 /**
@@ -238,4 +220,110 @@ function appendTypingIndicator() {
 
 function scrollToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// End Conversation and Feedback Modal Logic
+const endChatBtn = document.getElementById('end-chat-btn');
+const feedbackModal = document.getElementById('chat-feedback-modal');
+const starButtons = document.querySelectorAll('.star-btn');
+const commentsTextarea = document.getElementById('feedback-comments');
+const submitFeedbackBtn = document.getElementById('feedback-submit-btn');
+const cancelFeedbackBtn = document.getElementById('feedback-cancel-btn');
+
+let selectedRating = null;
+
+if (endChatBtn) {
+  endChatBtn.addEventListener('click', () => {
+    if (!lastQueryLogId) {
+      toast.info('No active conversation history. Resetting chat screen.');
+      resetChatScreen();
+      return;
+    }
+    // Show modal
+    feedbackModal.style.display = 'flex';
+  });
+}
+
+// Stars rating selection
+starButtons.forEach(star => {
+  star.addEventListener('click', () => {
+    selectedRating = parseInt(star.dataset.star);
+    // Highlight stars up to clicked one
+    starButtons.forEach(s => {
+      const starVal = parseInt(s.dataset.star);
+      if (starVal <= selectedRating) {
+        s.style.color = '#F59E0B'; // Gold star color
+      } else {
+        s.style.color = 'rgba(255, 255, 255, 0.15)'; // Inactive
+      }
+    });
+    submitFeedbackBtn.disabled = false;
+  });
+  
+  // Hover styles
+  star.addEventListener('mouseover', () => {
+    const hoverVal = parseInt(star.dataset.star);
+    starButtons.forEach(s => {
+      const starVal = parseInt(s.dataset.star);
+      if (starVal <= hoverVal) {
+        s.style.transform = 'scale(1.2)';
+        s.style.textShadow = '0 0 8px #F59E0B';
+      }
+    });
+  });
+
+  star.addEventListener('mouseout', () => {
+    starButtons.forEach(s => {
+      s.style.transform = 'scale(1)';
+      s.style.textShadow = 'none';
+    });
+  });
+});
+
+// Submit feedback
+if (submitFeedbackBtn) {
+  submitFeedbackBtn.addEventListener('click', async () => {
+    if (!lastQueryLogId || !selectedRating) return;
+    const comments = commentsTextarea.value.trim();
+    try {
+      submitFeedbackBtn.disabled = true;
+      await submitFeedback(lastQueryLogId, selectedRating, comments);
+      toast.success('Thank you for your feedback!');
+      closeFeedbackModal();
+      resetChatScreen();
+    } catch (err) {
+      submitFeedbackBtn.disabled = false;
+      toast.error('Failed to log feedback.');
+    }
+  });
+}
+
+// Skip feedback
+if (cancelFeedbackBtn) {
+  cancelFeedbackBtn.addEventListener('click', () => {
+    closeFeedbackModal();
+    resetChatScreen();
+    toast.info('Conversation reset.');
+  });
+}
+
+function closeFeedbackModal() {
+  feedbackModal.style.display = 'none';
+  selectedRating = null;
+  starButtons.forEach(s => {
+    s.style.color = 'rgba(255, 255, 255, 0.15)';
+  });
+  commentsTextarea.value = '';
+  submitFeedbackBtn.disabled = true;
+}
+
+function resetChatScreen() {
+  // Clear messages except welcome
+  chatMessages.innerHTML = '';
+  // Re-append welcome screen
+  if (welcomeScreen) {
+    welcomeScreen.style.display = 'flex';
+    chatMessages.appendChild(welcomeScreen);
+  }
+  lastQueryLogId = null;
 }
