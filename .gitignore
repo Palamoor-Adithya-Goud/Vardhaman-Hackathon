@@ -42,6 +42,5 @@ downloaded_pdfs/
 /chromadb_data/
 downloads_temp/
 
-# Ignore generated PPT folder and guide
-presentation/
-PPT_Guide.md
+# Ignore generated PPT Guide
+/PPT_Guide.md
