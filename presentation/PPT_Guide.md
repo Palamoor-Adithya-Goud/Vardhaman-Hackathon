@@ -3,7 +3,7 @@
 This guide is structured to help you build a comprehensive PowerPoint presentation for the **Faculty Research Intelligence Platform (FRIP)** project. You can copy the content slide-by-slide.
 
 ### 🔗 Project & Presentation Resources:
-* **Google Slides Presentation Template:** [Google Slides](https://docs.google.com/presentation/d/1dJAWC4kDrH5Sxo78_pgn-a_SW48JmfWb/edit?usp=drivesdk&ouid=106479724234776844558&rtpof=true&sd=true)
+* **Google Slides Presentation Template:** [PPT Slides](https://1drv.ms/p/c/782272E8AC7FB3F7/IQB_v9nl5WlFRLWOLC08Nhb7ATRrm3SIMvnnpQ31vm663DA?e=KgFa7i)
 * **Google Drive Reference File:** [Google Drive Reference File](https://drive.google.com/file/d/1qlvypcqBnBna-m7Dl2V2MDCsSE5k7rb_/view?usp=drivesdk)
 
 ---
